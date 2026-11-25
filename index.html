@@ -142,7 +142,7 @@ aside.on{transform:none}.ah{display:flex;justify-content:space-between;align-ite
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 // ===== CONFIGURAÇÃO (veja o LEIA-ME): cole aqui a URL e a chave "anon public" do seu projeto Supabase =====
-const SUPABASE_URL="COLE_AQUI_A_URL_DO_PROJETO", SUPABASE_KEY="COLE_AQUI_A_CHAVE_ANON_PUBLICA";
+const SUPABASE_URL="https://yabkojxchooatvjpmipf.supabase.co", SUPABASE_KEY="sb_publishable_UV8TRzaL2P63k4XmLXRS_Q_l3Z77zC-";
 // ==========================================================================================================
 const RAW="<!DOCTYPE html>\n"+document.documentElement.outerHTML;
 const $=s=>document.querySelector(s);
@@ -160,7 +160,7 @@ let sb=null;try{if(!/COLE_AQUI/.test(SUPABASE_URL+SUPABASE_KEY))sb=supabase.crea
 let P=[],S={...DEF},ORD=[],CUP=[],session=null,adminView=false,tab="Painel",cat="Todos",q="",pf="",favMode=false,editing=null,pimg=null,ccode="",disc=0;
 let bag=ls("fal_bag")||[],favs=ls("fal_fav")||[];
 // Modo local (sem Supabase): painel com usuário adm / senha 12345. Para trocar, edite as duas constantes abaixo.
-const LUSER="adm",LPASS="12345",LOCAL=!sb;
+const LOCAL=false;
 let EMB=null;try{EMB=JSON.parse($("#data").textContent)}catch(e){}
 const BASE=EMB&&EMB.products?EMB:{products:SEED,settings:{},coupons:[]};
 const hh=t=>{let x=0;for(let i=0;i<t.length;i+=7)x=(x*31+t.charCodeAt(i))|0;return t.length+":"+x};
@@ -170,7 +170,7 @@ function baseApply(){P=BASE.products.map(x=>({...x,sizes:{...(x.sizes||{})}}));S
 function applyDraft(){try{const d=ls("fal_draft");if(d&&d.base===BH&&d.data){P=d.data.products;S={...DEF,...d.data.settings};CUP=d.data.coupons||[];dirty=true}}catch(e){}}
 const persist=()=>{dirty=true;ls("fal_draft",{base:BH,data:{products:P,settings:S,coupons:CUP}})};
 if(LOCAL){baseApply();try{if(sessionStorage.getItem("fal_adm")==="1"){session=true;applyDraft()}}catch(e){}}
-const DB=sb||localDB();
+const DB=sb;
 const byId=id=>P.find(p=>p.id===id);
 const NAME=()=>S.name||"Joias Falconi";
 let bimg=null;
@@ -193,8 +193,8 @@ async function load(){
  if(sb){try{
   const [a,b]=await Promise.all([DB.from("products").select("*").order("created_at"),DB.from("settings").select("data").eq("id",1).maybeSingle()]);
   if(a.error)throw a.error;P=a.data||[];if(b.data&&b.data.data)S={...DEF,...b.data.data};
- }catch(e){P=[]}}
- if(!P.length&&!session)P=SEED.map(x=>({...x}));
+ }catch(e){P=[];toast("Não foi possível carregar o catálogo.")}}
+ 
  bag=bag.filter(i=>byId(i.id));
 }
 async function adminLoad(){
@@ -304,8 +304,7 @@ const act={
    const x=await sb.rpc("create_order",{p_customer:nm,p_phone:tl,p_mode:mode,p_address:ad,p_payment:$("#cy").value,p_notes:$("#co").value.trim(),p_items:bag.map(i=>({id:i.id,size:i.size,qty:i.qty})),p_coupon:ccode});
    if(x.error){E.textContent=x.error.message||"Não foi possível registrar o pedido.";$("#sendb").disabled=false;return}
    r=x.data;
-  }catch(e){
-   r={number:"FAL-"+new Date().toISOString().slice(2,10).replace(/-/g,"")+"-"+Math.floor(1000+Math.random()*9000),subtotal:c.sub,discount:disc,delivery:c.fee,total:c.tot,items:bag.map(i=>{const p=byId(i.id);return{code:p.code,name:p.name,size:i.size,qty:i.qty,unit:pr(p)}})};
+  }catch(e){E.textContent="Não foi possível registrar o pedido. Tente novamente.";$("#sendb").disabled=false;return
   }
   const L=r.items.map(i=>`Nome da peça: ${i.name}${i.size?" ("+i.size+")":""}\nCódigo: ${i.code}\nQuantidade: ${i.qty}\nValor unitário: ${i.unit?money(i.unit):"sob consulta"}\nSubtotal: ${i.unit?money(i.unit*i.qty):"sob consulta"}`).join("\n\n");
   const ent=mode==="Retirada"?"Retirada (sem taxa)":r.delivery!=null?money(r.delivery):"a combinar pelo WhatsApp";
@@ -316,6 +315,7 @@ const act={
  },
  async login(){
   const e=$("#le");
+  if(!sb){e.textContent="Conexão indisponível. Recarregue a página.";return}
   if(LOCAL){if($("#lu").value.trim().toLowerCase()===LUSER&&$("#lp").value===LPASS){session=true;try{sessionStorage.setItem("fal_adm","1")}catch(x){}applyDraft();render()}else e.textContent="Usuário ou senha incorretos.";return}
   const r=await sb.auth.signInWithPassword({email:(v=>v.includes("@")?v:v.toLowerCase()+"@falconi.com.br")($("#lu").value.trim()),password:$("#lp").value});
   if(r.error){e.textContent="Usuário ou senha incorretos.";return}
@@ -360,7 +360,7 @@ function promoTable(){return `<h3>Promoções, novidades e destaques das peças<
 function catTab(){return `<h3>Categorias da loja</h3><div class="row" style="margin-bottom:14px"><input id="nc" placeholder="Nova categoria" style="max-width:260px"><button class="btn s" data-a="addCat">Adicionar</button></div>${S.cats.map((c,i)=>`<div class="bar" style="margin-bottom:8px"><span class="row"><input id="rc_${i}" value="${esc(c)}" style="width:200px"><small>${P.filter(p=>p.cat===c).length} peça(s)</small></span><span class="row"><button class="btn s o" data-a="moveCat" data-v="${i},-1" aria-label="Subir">↑</button><button class="btn s o" data-a="moveCat" data-v="${i},1" aria-label="Descer">↓</button><button class="btn s o" data-a="renCat" data-v="${i}">Renomear</button><button class="btn s o" data-a="delCat" data-v="${i}">Excluir</button></span></div>`).join("")}<p><small>As categorias Novidades e Promoções são automáticas, conforme as marcações das peças.</small></p>`}
 function renderAdmin(){
  const A=$("#adm");
- if(!session){A.innerHTML=`<div class="box" style="margin-top:40px;max-width:360px;text-align:center"><h2>${esc(NAME())}</h2><p>Área administrativa</p><label>Usuário<input id="lu" autocomplete="username"></label><label>Senha<input id="lp" type="password" autocomplete="current-password"></label><div class="err" id="le"></div><p><button class="btn" data-a="login">Entrar</button> <button class="btn o" data-a="home">Voltar</button></p></div>`;return}
+ if(!session){A.innerHTML=`<div class="box" style="margin-top:40px;max-width:360px;text-align:center"><h2>${esc(NAME())}</h2><p>Área administrativa</p><label>E-mail<input type="email" id="lu" autocomplete="username"></label><label>Senha<input id="lp" type="password" autocomplete="current-password"></label><div class="err" id="le"></div><p><button class="btn" data-a="login">Entrar</button> <button class="btn o" data-a="home">Voltar</button></p></div>`;return}
  const tabs=["Painel","Produtos","Pedidos","Promoções","Categorias","Loja"].filter(t=>!LOCAL||t!=="Pedidos"),es=P.filter(out).length,low=P.filter(p=>!out(p)&&ctrl(p)&&total(p)<=2);
  const pend=ORD.filter(o=>o.status==="Aguardando confirmação").length;
  let h=`<div class="bar"><b>Painel administrativo · ${esc(NAME())}</b><div class="row">${LOCAL?'<button class="btn s" data-a="download">Baixar site atualizado</button>':""}<button class="btn o s" data-a="home">Ver loja</button><button class="btn o s" data-a="logout">Sair</button></div></div>${LOCAL?`<p style="font-size:14px;color:var(--rose)">${dirty?"Há alterações não publicadas. ":""}As alterações ficam salvas neste aparelho. Para as clientes verem, clique em <b>Baixar site atualizado</b> e envie o arquivo <b>index.html</b> ao GitHub, substituindo o atual.</p>`:""}<div class="err" id="pm"></div><div class="tabs">${tabs.map(t=>`<button data-a="tab" data-v="${t}" aria-pressed="${t===tab}">${t}${t==="Pedidos"&&pend?" ("+pend+")":""}</button>`).join("")}</div>`;
