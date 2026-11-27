@@ -291,7 +291,7 @@ const act={
  qp(n){const i=bag[n];if(i.qty+1<=maxQ(byId(i.id),i.size))i.qty++;else toast("Quantidade acima do estoque disponível");save();render();renderBag()},
  rm(n){bag.splice(n,1);save();render();renderBag()},
  coupon(){ccode=$("#cp").value.trim();$("#cpm").textContent="";renderBag().then(()=>{$("#cpm").textContent=!ccode?"":disc?"Cupom aplicado ✓":"Cupom inválido, expirado ou abaixo do valor mínimo.";if(!disc)ccode=""})},
- checkout(){if(!bag.length){toast("Sua sacola está vazia");return}$("#v1").hidden=true;$("#v2").hidden=false;$("#bh").textContent="Finalizar pedido";$("#sent").innerHTML="";sumView()},
+ checkout(){if(!bag.length){toast("Sua sacola está vazia");return}const nl=String.fromCharCode(10);const itens=bag.map(i=>{const p=byId(i.id);return i.qty+"x "+p.name+" | Código: "+p.code+(i.size?" | Tamanho: "+i.size:"")+" | "+(pr(p)?money(pr(p)*i.qty):"Sob consulta")}).join(nl);const msg=["Olá! Gostaria de fazer um pedido na FALCONI.",itens,"Subtotal: "+money(calc().sub),"Desconto: "+money(disc),"Total dos produtos: "+money(calc().sub-disc),"Gostaria de combinar o pagamento e a entrega."].join(nl+nl);window.location.href="https://wa.me/"+S.whats+"?text="+encodeURIComponent(msg)},
  async send(){
   const nm=$("#cn").value.trim(),tl=$("#ct").value.trim(),mode=$("#cm").value,ad=$("#ca").value.trim(),E=$("#cerr");
   if(!bag.length){E.textContent="Sua sacola está vazia.";return}
