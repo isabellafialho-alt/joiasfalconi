@@ -127,7 +127,7 @@ aside.on{transform:none}.ah{display:flex;justify-content:space-between;align-ite
 <label>Nome completo<input id="cn" autocomplete="name"></label>
 <label>Telefone / WhatsApp<input id="ct" type="tel" autocomplete="tel"></label>
 <label>Forma de recebimento<select id="cm"><option>Retirada</option><option>Entrega</option></select></label>
-<label>Endereço completo (se for entrega)<input id="ca"></label>
+<label hidden>Endereço completo (se for entrega)<input id="ca"></label>
 <label>Forma de pagamento pretendida<select id="cy"><option>PIX</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Transferência bancária</option></select></label>
 <label>Observações (opcional)<textarea id="co" rows="2"></textarea></label>
 <div class="err" id="cerr"></div>
@@ -291,28 +291,25 @@ const act={
  qp(n){const i=bag[n];if(i.qty+1<=maxQ(byId(i.id),i.size))i.qty++;else toast("Quantidade acima do estoque disponível");save();render();renderBag()},
  rm(n){bag.splice(n,1);save();render();renderBag()},
  coupon(){ccode=$("#cp").value.trim();$("#cpm").textContent="";renderBag().then(()=>{$("#cpm").textContent=!ccode?"":disc?"Cupom aplicado ✓":"Cupom inválido, expirado ou abaixo do valor mínimo.";if(!disc)ccode=""})},
- checkout(){if(!bag.length){toast("Sua sacola está vazia");return}const nl=String.fromCharCode(10);const itens=bag.map(i=>{const p=byId(i.id);return i.qty+"x "+p.name+" | Código: "+p.code+(i.size?" | Tamanho: "+i.size:"")+" | "+(pr(p)?money(pr(p)*i.qty):"Sob consulta")}).join(nl);const msg=["Olá! Gostaria de fazer um pedido na FALCONI.",itens,"Subtotal: "+money(calc().sub),"Desconto: "+money(disc),"Total dos produtos: "+money(calc().sub-disc),"Gostaria de combinar o pagamento e a entrega."].join(nl+nl);window.location.href="https://wa.me/"+S.whats+"?text="+encodeURIComponent(msg)},
- async send(){
-  const nm=$("#cn").value.trim(),tl=$("#ct").value.trim(),mode=$("#cm").value,ad=$("#ca").value.trim(),E=$("#cerr");
-  if(!bag.length){E.textContent="Sua sacola está vazia.";return}
-  if(!nm||!tl){E.textContent="Informe seu nome completo e telefone.";return}
-  if(mode==="Entrega"&&!ad){E.textContent="Informe o endereço completo para entrega.";return}
-  E.textContent="";$("#sendb").disabled=true;
-  const c=calc();let r;
-  try{
-   if(demo())throw 0;
-   const x=await sb.rpc("create_order",{p_customer:nm,p_phone:tl,p_mode:mode,p_address:ad,p_payment:$("#cy").value,p_notes:$("#co").value.trim(),p_items:bag.map(i=>({id:i.id,size:i.size,qty:i.qty})),p_coupon:ccode});
-   if(x.error){E.textContent=x.error.message||"Não foi possível registrar o pedido.";$("#sendb").disabled=false;return}
-   r=x.data;
-  }catch(e){E.textContent="Não foi possível registrar o pedido. Tente novamente.";$("#sendb").disabled=false;return
-  }
-  const L=r.items.map(i=>`Nome da peça: ${i.name}${i.size?" ("+i.size+")":""}\nCódigo: ${i.code}\nQuantidade: ${i.qty}\nValor unitário: ${i.unit?money(i.unit):"sob consulta"}\nSubtotal: ${i.unit?money(i.unit*i.qty):"sob consulta"}`).join("\n\n");
-  const ent=mode==="Retirada"?"Retirada (sem taxa)":r.delivery!=null?money(r.delivery):"a combinar pelo WhatsApp";
-  const m=`*${NAME().toUpperCase()} — NOVO PEDIDO*\nPedido nº: ${r.number}\n\nCliente: ${nm}\nTelefone: ${tl}\n\n*PEÇAS SELECIONADAS*\n\n${L}\n\n*RESUMO FINANCEIRO*\nSubtotal dos produtos: ${money(r.subtotal)}\nDesconto: ${money(r.discount||0)}\nEntrega: ${ent}\nTotal: ${money(r.total)}${mode==="Entrega"&&r.delivery==null?" (sem a entrega)":""}\n\n*INFORMAÇÕES DA CLIENTE*\nForma de recebimento: ${mode}\nEndereço: ${ad||"-"}\nForma de pagamento: ${$("#cy").value}\nObservações: ${$("#co").value.trim()||"-"}\n\nPedido aguardando confirmação de disponibilidade e pagamento.\nObrigada por escolher a ${NAME()}!`;
-  const u="https://wa.me/"+S.whats+"?text="+encodeURIComponent(m);
-  window.open(u,"_blank");bag=[];ccode="";disc=0;save();render();$("#sendb").disabled=false;
-  $("#sent").innerHTML=`<p class="err" style="color:var(--ink)">Pedido ${esc(r.number)} enviado! Ele ainda será confirmado pela FALCONI.</p><a class="btn o s" href="${u}" target="_blank" rel="noopener">Abrir o WhatsApp novamente</a>`;
- },
+ checkout(){if(!bag.length){toast("Sua sacola está vazia");return}$("#v1").hidden=true;$("#v2").hidden=false;$("#bh").textContent="Finalizar pedido";$("#sent").innerHTML="";sumView()},
+async send(){
+ const nome=$("#cn").value.trim();
+ const tel=$("#ct").value.trim();
+ const modo=$("#cm").value;
+ const pag=$("#cy").value;
+ const obs=$("#co").value.trim();
+ const erro=$("#cerr");
+ if(!bag.length){erro.textContent="Sua sacola está vazia.";return}
+ if(!nome||!tel){erro.textContent="Informe seu nome completo e telefone.";return}
+ erro.textContent="";
+ const nl=String.fromCharCode(10);
+ const itens=bag.map(i=>{
+ const p=byId(i.id);
+ return i.qty+"x "+p.name+" | Código: "+p.code+(i.size?" | Tamanho: "+i.size:"")+" | "+(pr(p)?money(pr(p)*i.qty):"Sob consulta");
+ }).join(nl);
+ const msg=["*NOVO PEDIDO - FALCONI*","Cliente: "+nome,"Telefone: "+tel,"","*PEÇAS SELECIONADAS*",itens,"","Subtotal: "+money(calc().sub),"Desconto: "+money(disc),"Total dos produtos: "+money(calc().sub-disc),"Recebimento: "+modo,"Pagamento: "+pag,"Observações: "+(obs||"Nenhuma")].join(nl);
+ window.location.href="https://wa.me/"+S.whats+"?text="+encodeURIComponent(msg);
+},
  async login(){
   const e=$("#le");
   if(!sb){e.textContent="Conexão indisponível. Recarregue a página.";return}
